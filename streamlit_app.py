@@ -26,7 +26,7 @@ education_list = ["High School", "Bachelor's Degree", "Master's", "PhD"]
 education = st.selectbox("Education Level", education_list)
 
 # Load and preprocess dataset
-df = pd.read_csv('C:\\Users\\mimom\\Downloads\\salaryData.csv')
+df = pd.read_csv('salaryData.csv')
 df = df.dropna()
 
 # Filter job titles with at least 5 entries
