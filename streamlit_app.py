@@ -1,112 +1,71 @@
-# Adding the streamlit library and assigning it an alias for reference
+# Imports
 import streamlit as st
 import datetime
-#Title of the web app
+import pandas as pd
+import numpy as np
+import pickle
+
+# Title
 st.title("Famous Five Job Application")
+st.write("This is the Famous Five web app.")
 
-# brief subtitle like description that describes the app
-st.write( "This is a the famous five web app.")
-
-# brief subtitle like description that describes the app
-st.write( "This is a the famous five web app.")
-
-# Include a text box that takes in first and last name as text parameters
+# Input fields
 first_name = st.text_input("First Name")
 last_name = st.text_input("Last Name")
-
-# Selection box with male/female option
-gender= st.selectbox("Gender", ["Male", "Female"])
-
-# Text box that takes in number parameters between 0 and 100 with 30 being the default
+gender = st.selectbox("Gender", ["Male", "Female"])
 age = st.number_input("Your age", 0, 100, 30, 1)
-
-# Allow selecting birthdays as far back as Jan 1, 1900
 dob = st.date_input(
     "Your Birthday",
-    value = datetime.date(2000,1,1), #default value shown
-    min_value = datetime.date(1900,1,1),
-    max_value = datetime.date.today()
-    )
-
-# Radio buttons for marital status
+    value=datetime.date(2000, 1, 1),
+    min_value=datetime.date(1900, 1, 1),
+    max_value=datetime.date.today()
+)
 marital_status = st.radio("Marital status", ["Single", "Married"])
-
-# Sliding bar for experience period in years, between 0 and 40
 years_of_experience = st.slider("Years of experience", 0, 40)
-
-#Define the job list and get user input
-job_list = ["Software Engineer", "Data Scientist", "Computer Scientist", "Accountant", "Teacher"]
-job = st.selectbox("Job Role", job_list)
-
-#Define the education list and get user in[ut
 education_list = ["High School", "Bachelor's Degree", "Master's", "PhD"]
 education = st.selectbox("Education Level", education_list)
 
-#gender list undes for prediction indexing
-gen_list = ['Male', 'Female']
+# Load and preprocess dataset
+df = pd.read_csv('C:\\Users\\mimom\\Downloads\\salaryData.csv')
+df = df.dropna()
 
-#Create 5 empty columns to center the Predict Salary button
-col10, col11, col12, col13, col14 = st.columns(5)
-with col10:
-    st.write('')
-with col11:
-    st.write('')
-with col12:
-    predict_btn = st.button('Predict Salary')
-with col13:
-    st.write('')
-with col14:
-    st.write('')
+# Filter job titles with at least 5 entries
+df_edited = df.groupby('Job Title').filter(lambda x: len(x) > 4)
 
-#Define a Model class that simulates predictions
-class TestModel:
-    def predict(self, X):
-        results = []
-        for x in X:
-            age, experience, job_idx, education_idx, gender_idx = X
-            base = 100000 #base salary for all
+# Encode categorical variables
+df_edited['Job Title'] = df_edited['Job Title'].astype('category')
+df_edited['Education Level'] = df_edited['Education Level'].astype('category')
+df_edited['Gender'] = df_edited['Gender'].astype('category')
 
-            #Multiplier based on job type
-            job_multiplier = [1.0, 1.2, 1.5, 1.1][job_idx]
+df_edited['Job Title Encoded'] = df_edited['Job Title'].cat.codes
+df_edited['Education Level Encoded'] = df_edited['Education Level'].cat.codes
+df_edited['Gender Encoded'] = df_edited['Gender'].cat.codes
 
-            #Education bonuses
-            education_bonus = [0, 5000, 10000, 15000][education_idx]
+# Final dataset
+df_final = df_edited.drop(['Gender', 'Education Level', 'Job Title'], axis=1)
 
-            #experience bonus per year
-            experience_bonus = experience * 1500
+# Load trained model
+model = pickle.load(open('model.pkl', 'rb'))
 
-            #total estimated salary
-            salary = base + education_bonus + experience_bonus
-            salary *= job_multiplier
+# Create job list from data
+job_categories = df_edited['Job Title'].cat.categories.tolist()
+job = st.selectbox("Job Role", job_categories)
 
-            results.append(salary)
+# Button and prediction
+if st.button("Predict Salary"):
+    try:
+        # Get encoded values
+        job_code = df_edited['Job Title'].cat.categories.get_loc(job)
+        education_code = df_edited['Education Level'].cat.categories.get_loc(education)
+        gender_code = df_edited['Gender'].cat.categories.get_loc(gender)
 
-        return results
-    
-#create an instance of the model
-model = TestModel()
+        # Create feature array
+        user_input = np.array([[age, years_of_experience, job_code, education_code, gender_code]])
 
-#run prediction logic when the button is clicked
+        # Make prediction
+        predicted_salary = model.predict(user_input)[0]
 
-if (predict_btn):
-    #prepare input values
-    inp1 = int(age)
-    inp2 = float(years_of_experience)
-    inp3 = int(job_list.index(job))
-    inp4 = int(education_list.index(education))
-    inp5 = int(gen_list.index(gender))
-
-    #combine all inputs into a list(as a row)
-    X = [inp1, inp2, inp3, inp4, inp5] #2D list for model
-
-    #get salary prediction
-    salary = model.predict(X)
-
-    #center the result in the middle of the screen
-    col15, col16, col17 = st.columns(3)
-    with col15:
-        st.write('')
-    with col16:
-        st.text(f"Estimated salary: ${int(salary[0])}")
-    with col17:
-        st.write('')
+        # Display result
+        st.success(f"Estimated salary: ${int(predicted_salary):,}")
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
