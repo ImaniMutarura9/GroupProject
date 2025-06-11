@@ -45,7 +45,9 @@ df_edited['Gender Encoded'] = df_edited['Gender'].cat.codes
 df_final = df_edited.drop(['Gender', 'Education Level', 'Job Title'], axis=1)
 
 # Load trained model
-model = pickle.load(open('model.pkl', 'rb'))
+with open('model.pkl', 'rb') as f:
+    model = pickle.load(f)
+
 
 # Create job list from data
 job_categories = df_edited['Job Title'].cat.categories.tolist()
